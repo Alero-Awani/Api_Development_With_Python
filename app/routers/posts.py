@@ -47,7 +47,7 @@ def create_post(post: schemas.CreatePost, db: Session = Depends(get_db), current
    # and we can access its 
    # email for example using current_user.email
    print(current_user.email)
-   new_post = models.Post(**post.dict())
+   new_post = models.Post(owner_id=current_user.id,**post.dict())
    db.add(new_post)
    db.commit()
    db.refresh(new_post)
@@ -58,6 +58,8 @@ def create_post(post: schemas.CreatePost, db: Session = Depends(get_db), current
 #RETREIVING A SINGLE POST WITH THE ID 
 @router.get("/{id}", response_model=schemas.PostResponse)
 def get_post(id: int, response: Response, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+
+    #
     post = db.query(models.Post).filter(models.Post.id == id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -68,17 +70,31 @@ def get_post(id: int, response: Response, db: Session = Depends(get_db), current
 #DELETING A SINGLE POST 
 @router.delete("/{id}" , status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
-    post = db.query(models.Post).filter(models.Post.id == id)
 
-    if post.first() == None:
+    # first we define the query
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+ 
+    #then we find the post 
+    post = post_query.first()
+
+    #we check to see if its there and if it isnt we return an error 
+    if post == None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f'Post with id {id} does not exist')
-    post.delete(synchronize_session=False)
+
+    # Then we check to see if the user thats logged in actually owns the post 
+    # where post.owner_id is the id extracted from the database and current_user.id is the id extracted from the token
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Not authorized to perform the requested action")
+
+    #then we grap the original query and append a delete
+    post_query.delete(synchronize_session=False)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 # UPDATING A SINGLE POST 
 @router.put("/{id}", response_model=schemas.PostResponse)
-def update_post(id: int, new_post: schemas.CreatePost, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
+def update_post(id: int, updated_post: schemas.CreatePost, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     #saving the query in a variable
     post_query = db.query(models.Post).filter(models.Post.id == id)
     
@@ -89,13 +105,17 @@ def update_post(id: int, new_post: schemas.CreatePost, db: Session = Depends(get
     if post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f'Post with id {id} does not exist')
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Not authorized to perform the requested action")
+
     
     # if it exists we want to update it using the updated method 
-    post_query.update(new_post.dict(), synchronize_session=False)
+    post_query.update(updated_post.dict(), synchronize_session=False)
 
     # commit the changes 
     db.commit()
 
     # return the updated post to the user (the first instance of the post)
-    return {"data": post_query.first()}
+    return post
 

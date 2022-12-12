@@ -17,10 +17,11 @@ class CreatePost(PostBase):
 class UpdatePost(PostBase):
     published: bool
 
-# RESPONSE SCHEMA FOR POSTS
+# RESPONSE SCHEMA FOR POSTS(this is what is returned back to user when they request for a post )
 class PostResponse(PostBase):
     id: int
     created_at: datetime
+    owner_id: int
    
     class Config:
      orm_mode = True

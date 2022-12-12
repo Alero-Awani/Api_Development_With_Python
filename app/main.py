@@ -31,10 +31,10 @@ async def root():
 # CONNECTING TO THE POSTGRES DATABASE 
 while True:
     try:
-        conn = psycopg2.connect(host=<localhost>,
-                                database = <database_name>,
-                                user = <postgres_user>,
-                                password = <postgres password>,
+        conn = psycopg2.connect(host="localhost",
+                                database = "fastapi",
+                                user = "postgres",
+                                password = "chegbeyeri",
                                 port = 5432,
                                 cursor_factory = RealDictCursor)
 
